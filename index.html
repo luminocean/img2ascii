@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>img2ascii</title>
+<style>
+#ascii-div {
+  font-family: monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  line-height: 9px;
+}
+</style>
+</head>
+<body>
+	<div>
+		<input id="img-input" type="file" />
+	</div>
+	<div>
+		<img id="img-display" />
+	</div>
+	<div id="ascii-div"></div>
+</body>
+<script>
+	imgInput = document.getElementById("img-input")
+	// 用户上传文件
+	imgInput.onchange = function(e){
+		var pic = e.target.files[0];
+		display(pic, function(){
+			asciify(pic);
+		});
+	};
+
+	// 显示图片对象
+	function display(pic, callback){
+		var reader = new FileReader();
+		reader.onload = function(e){
+			var dataUrl = e.target.result;
+			var img = document.getElementById("img-display")
+			img.src = dataUrl;
+			img.onload = function(){
+				callback();
+			}
+		};
+		reader.readAsDataURL(pic);
+	}
+
+	// 灰化数据
+	function greyify(array){
+		for(var i=0; i<array.length; i+=4){
+			var R = array[i], G = array[i+1], B = array[i+2], A = array[i+3];
+			var gray = ~~((R + G + B)/3) // 灰化处理，并取整数
+
+			// 写回灰度数据
+			array[i] = gray;
+			array[i+1] = gray;
+			array[i+2] = gray;
+			array[i+3] = A;
+		}
+	}
+
+	// 字符化处理
+	function asciify(pic){
+		var img = document.getElementById("img-display"); // 已显示的图片
+		var canvas = document.createElement("canvas"); // 临时canvas
+		canvas.width = img.width;
+		canvas.height = img.height;
+
+		// 获取图片的像素数据
+		var ctx = canvas.getContext('2d');
+		ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+		var pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+		// 灰化处理
+		greyify(pixelData.data);
+
+		asciiText = ascii(pixelData.data, canvas.width, canvas.height);
+		document.getElementById("ascii-div").innerHTML = asciiText;
+	}
+
+	// 根据传入的像素数组计算对应的ascii文本
+	function ascii(pixelArr, pixelWidth, pixelHeight){
+		var charMap = color2charMap();
+		var density = 6; // 取样方格边长
+
+		var charArr = [];
+
+		for(var j=0; j<pixelHeight-density; j+=density){
+			for(var i=0; i<pixelWidth-density; i+=density){
+				index = i + j * pixelWidth;
+
+				char = blockChar(pixelArr, pixelWidth, pixelHeight, index, density, charMap);
+				charArr.push(char);
+			}
+			charArr.push('<br />');
+		}
+
+		return charArr.join('');
+	}
+
+	// 计算一块区域内像素所代表的字符
+	function blockChar(pixelArr, pixelWidth, pixelHeight, index, density, charMap){
+		blockSum = 0
+        count = 0
+		for(var j=0; j<density; j++){
+			for(var i=0; i<density; i++){
+				blockSum += pixelArr[(index + i + j * pixelWidth) * 4]
+                count += 1
+			}
+		}
+		num = ~~(blockSum / count);
+		return charMap[num];
+	}
+
+	function color2charMap(color){
+		var chars = ['M','N','K','H','B','X','S','O','C','Z','U','T','J','L','I','1'];
+		var map = {};
+		for(var i=0; i<256; i++){
+			map[i] = chars[~~(i/16)];
+		}
+		return map;
+	}
+</script>
+</html>
